@@ -47,11 +47,6 @@ class filter_cloudfront_signurl extends moodle_text_filter {
             return $text;
         }
         
-        if (! $disturls = get_config('filter_cloudfront_signurl','distributionurl') ){
-            //  Stop if no url set to look for
-            return $text;
-        }
-        
         if (stripos($text, '[cloudfront') === false) {
             // Performance shortcut - all regexes below contain http/https protocol,
             // if not present nothing can match.

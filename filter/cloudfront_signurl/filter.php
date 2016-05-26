@@ -102,6 +102,7 @@ class filter_cloudfront_signurl extends moodle_text_filter {
 	}
 
     private function callback(array $matches) {
+		$scriptDir = $CFG->dirroot.'/filter/cloudfront_signurl/scripts';
 		$text =  $matches[0];
 		$this->id++;
 
@@ -123,20 +124,32 @@ class filter_cloudfront_signurl extends moodle_text_filter {
 		} else {
 			$onReady = '';
 		}
-		$signUrl = filter_cloudfront_signurl_urlsigner::get_canned_policy_stream_name($url);
+
+
+		if ( preg_match('~.*(rtmp://.*/cfx/st/(_definst_/|mp4:|flv:|mp3:|webm:)?)(\S*)~is', $url, $url_parts) ) {
+			if (count($url_parts) < 3)
+				return $text;
+
+			$signUrl = filter_cloudfront_signurl_urlsigner::get_canned_policy_stream_name_rtmp($url_parts[1], $url_parts[3]);
+		} else {
+			$signUrl = filter_cloudfront_signurl_urlsigner::get_canned_policy_stream_name($url);
+		}
+
 
         return "<div id=\"cloudfront-video-{$this->id}\"></div>
-<script type=\"text/javascript\" id=cloudfront-video-setup-{$this->id}>
+<script type=\"text/javascript\" id=\"cloudfront-video-setup-{$this->id}\">
 jwplayer(\"cloudfront-video-{$this->id}\").setup({
+flashplayer: \"{$scriptDir}/jwplayer/jwplayer.flash.swf\",
 file: \"{$signUrl}\",
 width: \"{$width}\",
 height: \"{$height}\",
 primary: \"flash\",
 events: {
 onReady: function () { {$onReady} }
-}
+},
+rtmp: { subscribe: true }
 });
-Y.one(\"#cloudfront-video-setup-{$this->id}\").remove();
+//Y.one(\"#cloudfront-video-setup-{$this->id}\").remove();
 </script>";
 	}
 }

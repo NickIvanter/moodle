@@ -150,10 +150,11 @@ class filter_cloudfront_signurl extends moodle_text_filter {
 		}
 
 		// Dist and file
-		$dist = null; $file = null;
+		$dist = null;
 		if ( preg_match('/dist=([^]\s]+)/i', $text, $dist_part) ) {
 			$dist = $dist_part[1];
 		}
+		$file = null;
 		if ( preg_match('/file=([^]\s]+)/i', $text, $file_part) ) {
 			$file = $file_part[1];
 		}
@@ -173,7 +174,7 @@ class filter_cloudfront_signurl extends moodle_text_filter {
 			$fallback_dist = $fallback_dist_part[1];
 		}
 
-		if ( $fallback_distdist && $file ) {
+		if ( $fallback_dist && $file ) {
 			$params['fallbackUrl'] = self::compose_distribution_url($fallback_dist, $file);
 		}
 

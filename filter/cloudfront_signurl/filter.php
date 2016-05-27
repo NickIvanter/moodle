@@ -76,7 +76,8 @@ class filter_cloudfront_signurl extends moodle_text_filter {
     }
 
 	private function embedPlayer() {
-		$scriptDir = $CFG->dirroot.'/filter/cloudfront_signurl/scripts';
+		global $CFG;
+		$scriptDir = $CFG->wwwroot.'/filter/cloudfront_signurl/scripts';
 
 		return "<script type='text/javascript' src='{$scriptDir}/jwplayer/jwplayer.js'></script>
 <script>jwplayer.key='MskDf3mwEySn8344579IXFmJZOU97Sntf6bMIw==';</script>";
@@ -102,7 +103,8 @@ class filter_cloudfront_signurl extends moodle_text_filter {
 	}
 
     private function callback(array $matches) {
-		$scriptDir = $CFG->dirroot.'/filter/cloudfront_signurl/scripts';
+		global $CFG;
+		$scriptDir = $CFG->wwwroot.'/filter/cloudfront_signurl/scripts';
 		$text =  $matches[0];
 		$this->id++;
 

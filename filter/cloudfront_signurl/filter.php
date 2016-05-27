@@ -216,7 +216,7 @@ class filter_cloudfront_signurl extends moodle_text_filter {
 
 		$custom = '';
 		if ( $params['image'] ) {
-			$custom .= "image: '{$CFG->dirroot}/{$params['image']}',";
+			$custom .= "image: '{$CFG->wwwroot}/{$params['image']}',";
 		}
 		if ( $params['title'] ) {
 			$custom .= "title: '{$params['image']}',";

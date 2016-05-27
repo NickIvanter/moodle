@@ -34,11 +34,13 @@ class filter_cloudfront_signurl extends moodle_text_filter {
 
 	private $id = 0;
 	private $scriptDir;
+	private $imageDir;
 
 	public function __construct()
 	{
 		global $CFG;
 		$this->scriptDir = $CFG->wwwroot.'/filter/cloudfront_signurl/scripts';
+		$this->imageDir = $CFG->wwwroot;
 	}
 
 	/**
@@ -109,26 +111,31 @@ class filter_cloudfront_signurl extends moodle_text_filter {
 	}
 
 
-	private static function parse_native_param($text, $tag, $paramName)
+	private static function default_param($paramName)
 	{
 		global $filter_cloudfront_signurl_defaults;
+		if ($paramName) {
+			$conf = get_config(
+				'filter_cloudfront_signurl',
+				$paramName,
+				$filter_cloudfront_signurl_defaults[$paramName]
+			);
+			if ( $conf ) {
+				return $conf;
+			} else {
+				return $filter_cloudfront_signurl_defaults[$paramName];
+			}
+		} else {
+			return 0;
+		}
+	}
+
+	private static function parse_native_param($text, $tag, $paramName)
+	{
 		if ( preg_match("/$tag=([^]\s]+)/i", $text, $matches) ) {
 			return $matches[1];
 		} else {
-			if ($paramName) {
-				$conf = get_config(
-					'filter_cloudfront_signurl',
-					$paramName,
-					$filter_cloudfront_signurl_defaults[$paramName]
-				);
-				if ( $conf ) {
-					return $conf;
-				} else {
-					return $filter_cloudfront_signurl_defaults[$paramName];
-				}
-			} else {
-				return 0;
-			}
+			return self::default_param($paramName);
 		}
 	}
 
@@ -217,7 +224,7 @@ class filter_cloudfront_signurl extends moodle_text_filter {
 
 		$custom = '';
 		if ( $params['image'] ) {
-			$custom .= "image: '{$CFG->wwwroot}/{$params['image']}',";
+			$custom .= "image: '{$this->imageDir}/{$params['image']}',";
 		}
 		if ( $params['title'] ) {
 			$custom .= "title: '{$params['image']}',";
@@ -246,20 +253,7 @@ events: { onReady: function () { {$onReady} } } });
 			if ( $val === 'yes') $val = 1;
 			return $val;
 		} else {
-			if ($paramName) {
-				$conf = get_config(
-					'filter_cloudfront_signurl',
-					$paramName,
-					$filter_cloudfront_signurl_defaults[$paramName]
-				);
-				if ( $conf ) {
-					return $conf;
-				} else {
-					return $filter_cloudfront_signurl_defaults[$paramName];
-				}
-			} else {
-				return 0;
-			}
+			return self::default_param($paramName);
 		}
 	}
 

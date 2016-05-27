@@ -161,6 +161,22 @@ class filter_cloudfront_signurl extends moodle_text_filter {
 			$params['url'] = self::compose_distribution_url($dist, $file);
 		}
 
+		// Direct full url
+		if ( preg_match('/fallback_url=([^]\s]+)/i', $text, $fallback) ) {
+			$params['fallbackUrl'] = $fallback[1];
+		}
+
+		// Dist and file
+		$fallback_dist = null;
+		if ( preg_match('/fallback=([^]\s]+)/i', $text, $fallback_dist_part) ) {
+			$fallback_dist = $fallback_dist_part[1];
+		}
+
+		if ( $fallback_distdist && $file ) {
+			$params['fallbackUrl'] = self::compose_distribution_url($fallback_dist, $file);
+		}
+
+
 		return $this->embed_video($params, $text);
 
 	}
@@ -181,6 +197,14 @@ class filter_cloudfront_signurl extends moodle_text_filter {
 			$params['player'] = 'flash';
 		}
 
+		// don't check for rtmp cause fallback must be web distribution
+		if ( $params['fallbackUrl'] ) {
+			$params['signFallbackUrl'] = filter_cloudfront_signurl_urlsigner::get_canned_policy_stream_name($params['fallbackUrl']);
+			$fallbackUrl = ",{file: '{$params['signFallbackUrl']}'}";
+		} else {
+			$fallbackUrl = '';
+		}
+
 		if ( $params['autostart'] ) {
 			$onReady = 'this.play();';
 		} elseif ( $params['thumb'] ) {
@@ -189,18 +213,26 @@ class filter_cloudfront_signurl extends moodle_text_filter {
 			$onReady = '';
 		}
 
+		$custom = '';
+		if ( $params['image'] ) {
+			$custom .= "image: '{$CFG->dirroot}/{$params['image']}',";
+		}
+		if ( $params['title'] ) {
+			$custom .= "title: '{$params['image']}',";
+		}
+
 		$this->id++;
 		$embed = "<div id='cloudfront-video-{$this->id}'></div>
 <script type='text/javascript' id='cloudfront-video-setup-{$this->id}'>
 jwplayer('cloudfront-video-{$this->id}').setup({
 flashplayer: '{$this->scriptDir}/jwplayer/jwplayer.flash.swf',
-file: '{$params['signUrl']}',
+sources: [{file: '{$params['signUrl']}'}{$fallbackUrl}],
 width: '{$params['width']}',
 height: '{$params['height']}',
 primary: '{$params['player']}',
+{$custom}
 events: { onReady: function () { {$onReady} } } });
 </script>";
-		// var_dump($embed);
 		return $embed;
 	}
 
@@ -208,8 +240,8 @@ events: { onReady: function () { {$onReady} } } });
 	{
 		global $filter_cloudfront_signurl_defaults;
 		if ( $val ) {
-			if ( $val == 'no') $val = 0;
-			if ( $val == 'yes') $val = 1;
+			if ( $val === 'no') $val = 0;
+			if ( $val === 'yes') $val = 1;
 			return $val;
 		} else {
 			if ($paramName) {
@@ -245,6 +277,11 @@ events: { onReady: function () { {$onReady} } } });
 		}
 	}
 
+	private function s3ms_compat_replace_plus($val)
+	{
+		return str_replace('+', '/', $val);
+	}
+
 	private function s3ms_compat_videostream($values, $text)
 	{
 		// var_dump($values);
@@ -278,15 +315,23 @@ events: { onReady: function () { {$onReady} } } });
 			$repeat
 		) = $values;
 
-		// var_dump($bucket);
 		$params = [
 			'width' => self::parse_s3ms_param($playerWidth, 'videowidth'),
 			'height' => self::parse_s3ms_param($playerHeight, 'videoheight'),
 			'autostart' => self::parse_s3ms_param($autoStart, 'videoautostart'),
 			'thumb' => 0,
-			'image' => self::parse_s3ms_param($posterImage, ''),
-			'url' => self::compose_distribution_url( $bucket, $mediaFile ),
+			'image' => self::parse_s3ms_param(self::s3ms_compat_replace_plus($posterImage), ''),
+			'url' => self::compose_distribution_url(
+				self::s3ms_compat_replace_plus($bucket),
+				self::s3ms_compat_replace_plus($mediaFile)
+			),
 		];
+		if ( $html5Fallback ) {
+			$params['fallbackUrl'] = self::compose_distribution_url(
+				self::s3ms_compat_replace_plus($html5Fallback),
+				self::s3ms_compat_replace_plus($mediaFile)
+			);
+		}
 
 		return $this->embed_video( $params, $text );
 	}

@@ -146,8 +146,7 @@ height: \"{$height}\",
 primary: \"flash\",
 events: {
 onReady: function () { {$onReady} }
-},
-rtmp: { subscribe: true }
+}
 });
 //Y.one(\"#cloudfront-video-setup-{$this->id}\").remove();
 </script>";

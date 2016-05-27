@@ -33,6 +33,12 @@ require_once($CFG->dirroot.'/filter/cloudfront_signurl/lib.php');
 class filter_cloudfront_signurl extends moodle_text_filter {
 
 	private $id = 0;
+	private $scriptDir;
+
+	public function __construct()
+	{
+		$this->scriptDir = $CFG->dirroot.'/filter/cloudfront_signurl/scripts';
+	}
 
 	/**
      * Implement the filtering.
@@ -47,110 +53,241 @@ class filter_cloudfront_signurl extends moodle_text_filter {
             return $text;
         }
         
-        if (stripos($text, '[cloudfront') === false) {
+        if (stripos($text, '[cloudfront') === false && stripos($text, '[s3mediastream]') === false) {
             // Performance shortcut - all regexes below contain http/https protocol,
             // if not present nothing can match.
             return $text;
         }
-        
-        $urls = preg_split("~\s+~", $disturls);
-        $regexurls = array();
 
-        // Strip protocol and trailing / from disturl if present
-        foreach ($urls as $disturl) {
-            $disturl = preg_replace('~^https?://|/$~','',$disturl);
-            if($disturl !== ''){
-                $regexurls[] = $disturl;
-            }
-        }
-        $urlregex = implode("|",$regexurls);
+		// Native tag
+		$newtext1 = preg_replace_callback('~\[cloudfront[^]]*\]~i', array($this, 'native_callback'), $text);
 
-		$newtext = preg_replace_callback($re = '~\[cloudfront.*\]~is', array($this, 'callback'), $text);
+		// s3mediastream compat tag
+		$newtext2 = preg_replace_callback('~\[s3mediastream\]([^[]*)\[/s3\]~i', array($this, 's3ms_compat_callback'), $newtext1);
         
-        if (empty($newtext) or $newtext === $text) {
+        if (empty($newtext2) or $newtext2 === $text) {
             // Error or not filtered.
             return $text;
         }
-
-        return $this->embedPlayer() . $newtext;
+        return $this->embed_player() . $newtext2;
     }
 
-	private function embedPlayer() {
-		global $CFG;
-		$scriptDir = $CFG->wwwroot.'/filter/cloudfront_signurl/scripts';
+	private function embed_player() {
 
-		return "<script type='text/javascript' src='{$scriptDir}/jwplayer/jwplayer.js'></script>
+		return "<script type='text/javascript' src='{$this->scriptDir}/jwplayer/jwplayer.js'></script>
 <script>jwplayer.key='MskDf3mwEySn8344579IXFmJZOU97Sntf6bMIw==';</script>";
 	}
 
-	private static function parseParam($text, $tag, $paramName)
+	private static function is_rtmp_distribution($dist)
+	{
+		return $dist[0] == 's';
+	}
+
+	private static function compose_distribution_url($dist, $file)
+	{
+		// Rip off protocol and domain if any
+		$dist = trim($dist);
+		$file = trim($file);
+		$dist = str_ireplace(['rtmp:', 'https:', '/', 'cloudfront.net', '.'], '', $dist);
+
+		if ( self::is_rtmp_distribution($dist) ) {
+			$protocol = 'rtmp://';
+			$suffix = 'cfx/st/';
+			if ( preg_match('/\.(.+)$/', $file, $parts) ) {
+				$ext = "{$parts[1]}:";
+			} else {
+				$ext = '';
+			}
+		} else {
+			$protocol = 'https://';
+			$suffix = '';
+			$ext = '';
+		}
+
+		return $protocol . $dist . '.cloudfront.net/' . $suffix . $ext . $file;
+	}
+
+
+	private static function parse_native_param($text, $tag, $paramName)
 	{
 		global $filter_cloudfront_signurl_defaults;
 		if ( preg_match("/$tag=([^]\s]+)/i", $text, $matches) ) {
 			return $matches[1];
 		} else {
-			$conf = get_config(
-				'filter_cloudfront_signurl',
-				$paramName,
-				$filter_cloudfront_signurl_defaults[$paramName]
-			);
-			if ( $conf ) {
-				return $conf;
+			if ($paramName) {
+				$conf = get_config(
+					'filter_cloudfront_signurl',
+					$paramName,
+					$filter_cloudfront_signurl_defaults[$paramName]
+				);
+				if ( $conf ) {
+					return $conf;
+				} else {
+					return $filter_cloudfront_signurl_defaults[$paramName];
+				}
 			} else {
-				return $filter_cloudfront_signurl_defaults[$paramName];
+				return 0;
 			}
 		}
 	}
 
-    private function callback(array $matches) {
-		global $CFG;
-		$scriptDir = $CFG->wwwroot.'/filter/cloudfront_signurl/scripts';
+    private function native_callback(array $matches) {
 		$text =  $matches[0];
-		$this->id++;
 
 		// Parse parameters
+		$params = [
+			'width' => self::parse_native_param($text, 'width', 'videowidth'),
+			'height' => self::parse_native_param($text, 'height', 'videoheight'),
+			'autostart' => self::parse_native_param($text, 'autostart', 'videoautostart'),
+			'thumb' => self::parse_native_param($text, 'thumb', 'videothumb'),
+			'image' => self::parse_native_param($text, 'image', ''),
+		];
+
+		// Direct full url
 		if ( preg_match('/url=([^]\s]+)/i', $text, $url) ) {
-			$url = $url[1];
-		} else {
-			return $text; // No url given
+			$params['url'] = $url[1];
 		}
 
-		$width = self::parseParam($text, 'width', 'videowidth');
-		$height = self::parseParam($text, 'height', 'videoheight');
-		$autostart = self::parseParam($text, 'autostart', 'videoautostart');
-		$thumb = self::parseParam($text, 'thumb', 'videothumb');
-		if ( $autostart == 1 ) {
+		// Dist and file
+		$dist = null; $file = null;
+		if ( preg_match('/dist=([^]\s]+)/i', $text, $dist_part) ) {
+			$dist = $dist_part[1];
+		}
+		if ( preg_match('/file=([^]\s]+)/i', $text, $file_part) ) {
+			$file = $file_part[1];
+		}
+
+		if ( $dist && $file ) {
+			$params['url'] = self::compose_distribution_url($dist, $file);
+		}
+
+		return $this->embed_video($params, $text);
+
+	}
+
+	private function embed_video($params, $text) {
+		// var_dump($params);
+		// No url given or composed
+		if ( !array_key_exists( 'url', $params ) ) return $text;
+
+		if ( preg_match('~.*(rtmp://.*/cfx/st/(_definst_/|mp4:|flv:|mp3:|webm:)?)(\S*)~is', $params['url'], $url_parts) ) {
+			if (count($url_parts) < 3)
+				return $text;
+
+			$params['signUrl'] = filter_cloudfront_signurl_urlsigner::get_canned_policy_stream_name_rtmp($url_parts[1], $url_parts[3]);
+			$params['player'] = 'flash';
+		} else {
+			$params['signUrl'] = filter_cloudfront_signurl_urlsigner::get_canned_policy_stream_name($params['url']);
+			$params['player'] = 'flash';
+		}
+
+		if ( $params['autostart'] ) {
 			$onReady = 'this.play();';
-		} elseif ( $thumb == 1 ) {
+		} elseif ( $params['thumb'] ) {
 			$onReady = 'this.play(); this.pause();';
 		} else {
 			$onReady = '';
 		}
 
-
-		if ( preg_match('~.*(rtmp://.*/cfx/st/(_definst_/|mp4:|flv:|mp3:|webm:)?)(\S*)~is', $url, $url_parts) ) {
-			if (count($url_parts) < 3)
-				return $text;
-
-			$signUrl = filter_cloudfront_signurl_urlsigner::get_canned_policy_stream_name_rtmp($url_parts[1], $url_parts[3]);
-		} else {
-			$signUrl = filter_cloudfront_signurl_urlsigner::get_canned_policy_stream_name($url);
-		}
-
-
-        return "<div id=\"cloudfront-video-{$this->id}\"></div>
-<script type=\"text/javascript\" id=\"cloudfront-video-setup-{$this->id}\">
-jwplayer(\"cloudfront-video-{$this->id}\").setup({
-flashplayer: \"{$scriptDir}/jwplayer/jwplayer.flash.swf\",
-file: \"{$signUrl}\",
-width: \"{$width}\",
-height: \"{$height}\",
-primary: \"flash\",
-events: {
-onReady: function () { {$onReady} }
-}
-});
-//Y.one(\"#cloudfront-video-setup-{$this->id}\").remove();
+		$this->id++;
+		$embed = "<div id='cloudfront-video-{$this->id}'></div>
+<script type='text/javascript' id='cloudfront-video-setup-{$this->id}'>
+jwplayer('cloudfront-video-{$this->id}').setup({
+flashplayer: '{$this->scriptDir}/jwplayer/jwplayer.flash.swf',
+file: '{$params['signUrl']}',
+width: '{$params['width']}',
+height: '{$params['height']}',
+primary: '{$params['player']}',
+events: { onReady: function () { {$onReady} } } });
 </script>";
+		// var_dump($embed);
+		return $embed;
+	}
+
+	private static function parse_s3ms_param($val, $paramName)
+	{
+		global $filter_cloudfront_signurl_defaults;
+		if ( $val ) {
+			if ( $val == 'no') $val = 0;
+			if ( $val == 'yes') $val = 1;
+			return $val;
+		} else {
+			if ($paramName) {
+				$conf = get_config(
+					'filter_cloudfront_signurl',
+					$paramName,
+					$filter_cloudfront_signurl_defaults[$paramName]
+				);
+				if ( $conf ) {
+					return $conf;
+				} else {
+					return $filter_cloudfront_signurl_defaults[$paramName];
+				}
+			} else {
+				return 0;
+			}
+		}
+	}
+
+
+	private function s3ms_compat_callback($matches)
+	{
+		$s3text = trim(str_ireplace( ['&nbsp;', ' '], '', $matches[1]) );
+		if ( !$s3text ) return ''; // Wipe out empty tag
+		$s3values = preg_split('/\s*,\s*/', $s3text);
+
+		switch ($s3values[0]) {
+		case 's3streamingvideo':
+			return self::s3ms_compat_videostream($s3values, $text);
+			break;
+		default:
+			return "<b>*** S3MEDIASTREAM TYPE {$s3values[0]} DOES NOT SUPPORTED ***</b>";
+		}
+	}
+
+	private function s3ms_compat_videostream($values, $text)
+	{
+		// var_dump($values);
+		list(
+			$mediaType,
+			$linkTitle,
+			$mediaID,
+			$startTimeline,
+			$duration,
+			$mediaFile,
+			$bucket,
+			$expireSeconds,
+			$encodeUrl,
+			$posterImage,
+			$logo,
+			$logoPosition,
+			$logoLink,
+			$autoStart,
+			$playerWidth,
+			$playerHeight,
+			$fullScreen,
+			$controlBar,
+			$selectSkin,
+			$drelatedLink,
+			$borderColor,
+			$captionsLink,
+			$captionsBack,
+			$captionsState,
+			$dockButtons,
+			$html5Fallback,
+			$repeat
+		) = $values;
+
+		// var_dump($bucket);
+		$params = [
+			'width' => self::parse_s3ms_param($playerWidth, 'videowidth'),
+			'height' => self::parse_s3ms_param($playerHeight, 'videoheight'),
+			'autostart' => self::parse_s3ms_param($autoStart, 'videoautostart'),
+			'thumb' => 0,
+			'image' => self::parse_s3ms_param($posterImage, ''),
+			'url' => self::compose_distribution_url( $bucket, $mediaFile ),
+		];
+
+		return $this->embed_video( $params, $text );
 	}
 }

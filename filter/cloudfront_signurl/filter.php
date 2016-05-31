@@ -40,7 +40,7 @@ class filter_cloudfront_signurl extends moodle_text_filter {
 	{
 		global $CFG;
 		$this->scriptDir = $CFG->wwwroot.'/filter/cloudfront_signurl/scripts';
-		$this->imageDir = $CFG->wwwroot;
+		$this->imageDir = '';
 	}
 
 	/**

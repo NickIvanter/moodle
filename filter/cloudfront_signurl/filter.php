@@ -75,6 +75,11 @@ class filter_cloudfront_signurl extends moodle_text_filter {
         return $this->embed_player() . $newtext2;
     }
 
+	private function is_param_set($key, $params)
+	{
+		return array_key_exists($key, $params) && $params[$key];
+	}
+
 	private function embed_player() {
 
 		return "<script type='text/javascript' src='{$this->scriptDir}/jwplayer/jwplayer.js'></script>
@@ -139,7 +144,7 @@ class filter_cloudfront_signurl extends moodle_text_filter {
 		}
 	}
 
-    private function native_callback(array $matches) {
+    private function native_callback($matches) {
 		$text =  $matches[0];
 
 		// Parse parameters
@@ -151,40 +156,41 @@ class filter_cloudfront_signurl extends moodle_text_filter {
 			'image' => self::parse_native_param($text, 'image', ''),
 		];
 
-		// Direct full url
-		if ( preg_match('/url=([^]\s]+)/i', $text, $url) ) {
-			$params['url'] = $url[1];
-		}
-
 		// Dist and file
 		$dist = null;
 		if ( preg_match('/dist=([^]\s]+)/i', $text, $dist_part) ) {
 			$dist = $dist_part[1];
+		} elseif ( self::default_param('maindistr') ) {
+			$dist = self::default_param('maindistr');
 		}
 		$file = null;
 		if ( preg_match('/file=([^]\s]+)/i', $text, $file_part) ) {
 			$file = $file_part[1];
 		}
-
 		if ( $dist && $file ) {
 			$params['url'] = self::compose_distribution_url($dist, $file);
 		}
 
 		// Direct full url
-		if ( preg_match('/fallback_url=([^]\s]+)/i', $text, $fallback) ) {
-			$params['fallbackUrl'] = $fallback[1];
+		if ( preg_match('/url=([^]\s]+)/i', $text, $url) ) {
+			$params['url'] = $url[1];
 		}
 
-		// Dist and file
+		// Fallback Dist and file
 		$fallback_dist = null;
 		if ( preg_match('/fallback=([^]\s]+)/i', $text, $fallback_dist_part) ) {
 			$fallback_dist = $fallback_dist_part[1];
+		} elseif ( self::default_param('fallbackdistr') ) {
+			$fallback_dist = self::default_param('fallbackdistr');
 		}
 
 		if ( $fallback_dist && $file ) {
 			$params['fallbackUrl'] = self::compose_distribution_url($fallback_dist, $file);
 		}
-
+		// Direct full url
+		if ( preg_match('/fallback_url=([^]\s]+)/i', $text, $fallback) ) {
+			$params['fallbackUrl'] = $fallback[1];
+		}
 
 		return $this->embed_video($params, $text);
 
@@ -207,26 +213,26 @@ class filter_cloudfront_signurl extends moodle_text_filter {
 		}
 
 		// don't check for rtmp cause fallback must be web distribution
-		if ( $params['fallbackUrl'] ) {
+		if ( self::is_param_set( 'fallbackUrl', $params ) ) {
 			$params['signFallbackUrl'] = filter_cloudfront_signurl_urlsigner::get_canned_policy_stream_name($params['fallbackUrl']);
 			$fallbackUrl = ",{file: '{$params['signFallbackUrl']}'}";
 		} else {
 			$fallbackUrl = '';
 		}
 
-		if ( $params['autostart'] ) {
+		if ( self::is_param_set( 'autostart', $params ) ) {
 			$onReady = 'this.play();';
-		} elseif ( $params['thumb'] ) {
+		} elseif ( self::is_param_set( 'thumb', $params ) ) {
 			$onReady = 'this.play(); this.pause();';
 		} else {
 			$onReady = '';
 		}
 
 		$custom = '';
-		if ( $params['image'] ) {
+		if ( self::is_param_set( 'image', $params ) ) {
 			$custom .= "image: '{$this->imageDir}/{$params['image']}',";
 		}
-		if ( $params['title'] ) {
+		if ( array_key_exists('title', $params) && $params['title']  ) {
 			$custom .= "title: '{$params['image']}',";
 		}
 
@@ -257,10 +263,11 @@ events: { onReady: function () { {$onReady} } } });
 		}
 	}
 
-
 	private function s3ms_compat_callback($matches)
 	{
+		$text = $matches[0];
 		$s3text = trim(str_ireplace( ['&nbsp;', ' '], '', $matches[1]) );
+
 		if ( !$s3text ) return ''; // Wipe out empty tag
 		$s3values = preg_split('/\s*,\s*/', $s3text);
 
@@ -322,9 +329,15 @@ events: { onReady: function () { {$onReady} } } });
 				self::s3ms_compat_replace_plus($mediaFile)
 			),
 		];
-		if ( $html5Fallback ) {
+		// if ( $html5Fallback ) {
+		// 	$params['fallbackUrl'] = self::compose_distribution_url(
+		// 		self::s3ms_compat_replace_plus($html5Fallback),
+		// 		self::s3ms_compat_replace_plus($mediaFile)
+		// 	);
+		// } else
+		if ( self::default_param('fallbackdistr') ) {
 			$params['fallbackUrl'] = self::compose_distribution_url(
-				self::s3ms_compat_replace_plus($html5Fallback),
+				self::s3ms_compat_replace_plus(self::default_param('fallbackdistr')),
 				self::s3ms_compat_replace_plus($mediaFile)
 			);
 		}

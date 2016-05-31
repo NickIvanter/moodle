@@ -23,8 +23,10 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
  
-$string['distributionurl'] = 'Distribution base URLs';
-$string['distributionurldesc'] = 'The cloudfront URLs of the distributions e.g. d111111abcdef8.cloudfront.net';
+$string['maindistr'] = 'Main distribution';
+$string['maindistrdesc'] = 'The cloudfront name of the main (rtmp) distribution e.g. s111111abcdef8';
+$string['fallbackdistr'] = 'Fallback distribution';
+$string['fallbackdistrdesc'] = 'The cloudfront name of the fallback (web) distribution e.g. d111111abcdef8';
 $string['errornokeyid'] = 'Missing Key Pair ID';
 $string['errornoprivatekey'] = 'Missing Key Private SSH Key File'; 
 $string['errornourl'] = 'No distribution URL provided';

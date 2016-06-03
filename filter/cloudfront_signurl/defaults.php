@@ -9,5 +9,6 @@ $filter_cloudfront_signurl_defaults = [
 	'videoheight' => 300,
 	'videoautostart' => 0,
 	'videothumb' => 0,
-	'linkname' => 'Pleace set the text',
+	'linkname' => 'Please set the text',
+	'nouserstub' => 'Please register',
 ];

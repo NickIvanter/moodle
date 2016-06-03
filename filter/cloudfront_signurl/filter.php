@@ -65,12 +65,12 @@ class filter_cloudfront_signurl extends moodle_text_filter {
 		// Native tag video
 		$newtext1 = preg_replace_callback('~\[cloudfront video[^]]*\]~i', array($this, 'native_video_callback'), $text);
 
-		// Native tag video
+		// Native tag link
 		$newtext2 = preg_replace_callback('~\[cloudfront link[^]]*\]~i', array($this, 'native_link_callback'), $newtext1);
 
 		// s3mediastream compat tag
 		$newtext3 = preg_replace_callback('~\[s3mediastream\]([^[]*)\[/s3\]~i', array($this, 's3ms_compat_callback'), $newtext2);
-        
+
         if (empty($newtext3) or $newtext3 === $text) {
             // Error or not filtered.
             return $text;
@@ -247,7 +247,7 @@ class filter_cloudfront_signurl extends moodle_text_filter {
 	private function s3ms_compat_callback($matches)
 	{
 		$text = $matches[0];
-		$s3text = trim(str_ireplace( ['&nbsp;', ' '], '', $matches[1]) );
+		$s3text = trim(str_ireplace( ['&nbsp;'], ' ', $matches[1]) );
 
 		if ( !$s3text ) return ''; // Wipe out empty tag
 		$s3values = preg_split('/\s*,\s*/', $s3text);
@@ -255,6 +255,10 @@ class filter_cloudfront_signurl extends moodle_text_filter {
 		switch ($s3values[0]) {
 		case 's3streamingvideo':
 			return self::s3ms_compat_videostream($s3values, $text);
+			break;
+		case 's3link':
+		case 's3link_s':
+			return self::s3ms_compat_link($s3values, $text);
 			break;
 		default:
 			return "<b>*** S3MEDIASTREAM TYPE {$s3values[0]} DOES NOT SUPPORTED ***</b>";
@@ -312,19 +316,49 @@ class filter_cloudfront_signurl extends moodle_text_filter {
 		];
 		// if ( $html5Fallback ) {
 		// 	$params['fallbackUrl'] = self::compose_distribution_url(
-		// 		self::s3ms_compat_replace_plus($html5Fallback),
+		// 		$html5Fallback,
 		// 		self::s3ms_compat_replace_plus($mediaFile)
 		// 	);
 		// } else
 		if ( self::default_param('fallbackdistr') ) {
 			$params['fallbackUrl'] = self::compose_distribution_url(
-				self::s3ms_compat_replace_plus(self::default_param('fallbackdistr')),
+				self::default_param('fallbackdistr'),
 				self::s3ms_compat_replace_plus($mediaFile)
 			);
 		}
 
 		return $this->embed_video( $params, $text );
 	}
+
+	private function s3ms_compat_link($values, $text)
+	{
+		global $USER, $filter_cloudfront_signurl_defaults;
+		list(
+			$mediaType,
+			$linkTitle,
+			$mediaFile,
+			$bucket,
+			$expireSeconds
+		) = $values;
+
+		$mediaFile = self::s3ms_compat_replace_plus($mediaFile);
+
+		if ( $mediaType == 's3link_s' ) {
+			if ( $USER && $USER->id ) {
+				$mediaFile = 'users/' . $USER->id . '/' . $mediaFile;
+			} else {
+				return $filter_cloudfront_signurl_defaults['nouserstub'];
+			}
+		}
+
+		$params = [
+			'name' => $linkTitle,
+			'url' => self::compose_distribution_url(self::default_param('fallbackdistr'), $mediaFile),
+		];
+
+		return self::embed_link($params, $text);
+	}
+
 	private function embed_link($params, $text)
 	{
 		$params['signUrl'] = filter_cloudfront_signurl_urlsigner::get_canned_policy_stream_name($params['url']);

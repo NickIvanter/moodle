@@ -45,6 +45,16 @@ if ($ADMIN->fulltree) {
             'accepted_types' => array('.pem')
         )));
             
+    $settings->add(new admin_setting_configtext('filter_cloudfront_signurl/maindistr',
+        get_string('maindistr', 'filter_cloudfront_signurl'),
+        get_string('maindistrdesc', 'filter_cloudfront_signurl'),
+        ''));
+
+    $settings->add(new admin_setting_configtext('filter_cloudfront_signurl/fallbackdistr',
+        get_string('fallbackdistr', 'filter_cloudfront_signurl'),
+        get_string('fallbackdistrdesc', 'filter_cloudfront_signurl'),
+        ''));
+
     $settings->add(new admin_setting_configduration('filter_cloudfront_signurl/validduration',
         get_string('validduration', 'filter_cloudfront_signurl'),
         get_string('validdurationdesc', 'filter_cloudfront_signurl'),

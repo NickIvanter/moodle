@@ -34,11 +34,13 @@ class filter_cloudfront_signurl extends moodle_text_filter {
 
 	private $id = 0;
 	private $scriptDir;
+	private $imageDir;
 
 	public function __construct()
 	{
 		global $CFG;
 		$this->scriptDir = $CFG->wwwroot.'/filter/cloudfront_signurl/scripts';
+		$this->imageDir = '';
 	}
 
 	/**
@@ -60,18 +62,26 @@ class filter_cloudfront_signurl extends moodle_text_filter {
             return $text;
         }
 
-		// Native tag
-		$newtext1 = preg_replace_callback('~\[cloudfront[^]]*\]~i', array($this, 'native_callback'), $text);
+		// Native tag video
+		$newtext1 = preg_replace_callback('~\[cloudfront video[^]]*\]~i', array($this, 'native_video_callback'), $text);
+
+		// Native tag link
+		$newtext2 = preg_replace_callback('~\[cloudfront link[^]]*\]~i', array($this, 'native_link_callback'), $newtext1);
 
 		// s3mediastream compat tag
-		$newtext2 = preg_replace_callback('~\[s3mediastream\]([^[]*)\[/s3\]~i', array($this, 's3ms_compat_callback'), $newtext1);
-        
-        if (empty($newtext2) or $newtext2 === $text) {
+		$newtext3 = preg_replace_callback('~\[s3mediastream\]([^[]*)\[/s3\]~i', array($this, 's3ms_compat_callback'), $newtext2);
+
+        if (empty($newtext3) or $newtext3 === $text) {
             // Error or not filtered.
             return $text;
         }
-        return $this->embed_player() . $newtext2;
+        return $this->embed_player() . $newtext3;
     }
+
+	private function is_param_set($key, $params)
+	{
+		return array_key_exists($key, $params) && $params[$key];
+	}
 
 	private function embed_player() {
 
@@ -109,30 +119,37 @@ class filter_cloudfront_signurl extends moodle_text_filter {
 	}
 
 
-	private static function parse_native_param($text, $tag, $paramName)
+	private static function default_param($paramName)
 	{
 		global $filter_cloudfront_signurl_defaults;
-		if ( preg_match("/$tag=([^]\s]+)/i", $text, $matches) ) {
-			return $matches[1];
-		} else {
-			if ($paramName) {
-				$conf = get_config(
-					'filter_cloudfront_signurl',
-					$paramName,
-					$filter_cloudfront_signurl_defaults[$paramName]
-				);
-				if ( $conf ) {
-					return $conf;
-				} else {
-					return $filter_cloudfront_signurl_defaults[$paramName];
-				}
+		if ($paramName) {
+			$conf = get_config(
+				'filter_cloudfront_signurl',
+				$paramName,
+				$filter_cloudfront_signurl_defaults[$paramName]
+			);
+			if ( $conf ) {
+				return $conf;
 			} else {
-				return 0;
+				return $filter_cloudfront_signurl_defaults[$paramName];
 			}
+		} else {
+			return 0;
 		}
 	}
 
-    private function native_callback(array $matches) {
+	private static function parse_native_param($text, $tag, $paramName)
+	{
+		if ( preg_match("/$tag='([^']+)'/i", $text, $matches) ) {
+			return $matches[1];
+		} elseif ( preg_match("/$tag=([^]\s]+)/i", $text, $matches) ) {
+			return $matches[1];
+		} else {
+			return self::default_param($paramName);
+		}
+	}
+
+    private function native_video_callback($matches) {
 		$text =  $matches[0];
 
 		// Parse parameters
@@ -144,98 +161,75 @@ class filter_cloudfront_signurl extends moodle_text_filter {
 			'image' => self::parse_native_param($text, 'image', ''),
 		];
 
-		// Direct full url
-		if ( preg_match('/url=([^]\s]+)/i', $text, $url) ) {
-			$params['url'] = $url[1];
-		}
-
 		// Dist and file
 		$dist = null;
 		if ( preg_match('/dist=([^]\s]+)/i', $text, $dist_part) ) {
 			$dist = $dist_part[1];
+		} elseif ( self::default_param('maindistr') ) {
+			$dist = self::default_param('maindistr');
 		}
 		$file = null;
 		if ( preg_match('/file=([^]\s]+)/i', $text, $file_part) ) {
 			$file = $file_part[1];
 		}
-
 		if ( $dist && $file ) {
 			$params['url'] = self::compose_distribution_url($dist, $file);
 		}
 
 		// Direct full url
-		if ( preg_match('/fallback_url=([^]\s]+)/i', $text, $fallback) ) {
-			$params['fallbackUrl'] = $fallback[1];
+		if ( preg_match('/url=([^]\s]+)/i', $text, $url) ) {
+			$params['url'] = $url[1];
 		}
 
-		// Dist and file
+		// Fallback Dist and file
 		$fallback_dist = null;
 		if ( preg_match('/fallback=([^]\s]+)/i', $text, $fallback_dist_part) ) {
 			$fallback_dist = $fallback_dist_part[1];
+		} elseif ( self::default_param('fallbackdistr') ) {
+			$fallback_dist = self::default_param('fallbackdistr');
 		}
 
 		if ( $fallback_dist && $file ) {
 			$params['fallbackUrl'] = self::compose_distribution_url($fallback_dist, $file);
 		}
-
+		// Direct full url
+		if ( preg_match('/fallback_url=([^]\s]+)/i', $text, $fallback) ) {
+			$params['fallbackUrl'] = $fallback[1];
+		}
 
 		return $this->embed_video($params, $text);
 
 	}
 
-	private function embed_video($params, $text) {
-		// var_dump($params);
-		// No url given or composed
-		if ( !array_key_exists( 'url', $params ) ) return $text;
+    private function native_link_callback($matches) {
+		$text =  $matches[0];
 
-		if ( preg_match('~.*(rtmp://.*/cfx/st/(_definst_/|mp4:|flv:|mp3:|webm:)?)(\S*)~is', $params['url'], $url_parts) ) {
-			if (count($url_parts) < 3)
-				return $text;
+		// Parse parameters
+		$params = [
+			'name' => self::parse_native_param($text, 'name', 'linkname'),
+		];
 
-			$params['signUrl'] = filter_cloudfront_signurl_urlsigner::get_canned_policy_stream_name_rtmp($url_parts[1], $url_parts[3]);
-			$params['player'] = 'flash';
-		} else {
-			$params['signUrl'] = filter_cloudfront_signurl_urlsigner::get_canned_policy_stream_name($params['url']);
-			$params['player'] = 'flash';
+		// Dist and file
+		$dist = null;
+		if ( preg_match('/dist=([^]\s]+)/i', $text, $dist_part) ) {
+			$dist = $dist_part[1];
+		} elseif ( self::default_param('fallbackdistr') ) {
+			$dist = self::default_param('fallbackdistr');
+		}
+		$file = null;
+		if ( preg_match('/file=([^]\s]+)/i', $text, $file_part) ) {
+			$file = $file_part[1];
+		}
+		if ( $dist && $file ) {
+			$params['url'] = self::compose_distribution_url($dist, $file);
 		}
 
-		// don't check for rtmp cause fallback must be web distribution
-		if ( $params['fallbackUrl'] ) {
-			$params['signFallbackUrl'] = filter_cloudfront_signurl_urlsigner::get_canned_policy_stream_name($params['fallbackUrl']);
-			$fallbackUrl = ",{file: '{$params['signFallbackUrl']}'}";
-		} else {
-			$fallbackUrl = '';
+		// Direct full url
+		if ( preg_match('/url=([^]\s]+)/i', $text, $url) ) {
+			$params['url'] = $url[1];
 		}
 
-		if ( $params['autostart'] ) {
-			$onReady = 'this.play();';
-		} elseif ( $params['thumb'] ) {
-			$onReady = 'this.play(); this.pause();';
-		} else {
-			$onReady = '';
-		}
-
-		$custom = '';
-		if ( $params['image'] ) {
-			$custom .= "image: '{$CFG->wwwroot}/{$params['image']}',";
-		}
-		if ( $params['title'] ) {
-			$custom .= "title: '{$params['image']}',";
-		}
-
-		$this->id++;
-		$embed = "<div id='cloudfront-video-{$this->id}'></div>
-<script type='text/javascript' id='cloudfront-video-setup-{$this->id}'>
-jwplayer('cloudfront-video-{$this->id}').setup({
-flashplayer: '{$this->scriptDir}/jwplayer/jwplayer.flash.swf',
-sources: [{file: '{$params['signUrl']}'}{$fallbackUrl}],
-width: '{$params['width']}',
-height: '{$params['height']}',
-primary: '{$params['player']}',
-{$custom}
-events: { onReady: function () { {$onReady} } } });
-</script>";
-		return $embed;
+		return $this->embed_link($params, $text);
 	}
 
 	private static function parse_s3ms_param($val, $paramName)
@@ -246,33 +240,25 @@ events: { onReady: function () { {$onReady} } } });
 			if ( $val === 'yes') $val = 1;
 			return $val;
 		} else {
-			if ($paramName) {
-				$conf = get_config(
-					'filter_cloudfront_signurl',
-					$paramName,
-					$filter_cloudfront_signurl_defaults[$paramName]
-				);
-				if ( $conf ) {
-					return $conf;
-				} else {
-					return $filter_cloudfront_signurl_defaults[$paramName];
-				}
-			} else {
-				return 0;
-			}
+			return self::default_param($paramName);
 		}
 	}
 
-
 	private function s3ms_compat_callback($matches)
 	{
-		$s3text = trim(str_ireplace( ['&nbsp;', ' '], '', $matches[1]) );
+		$text = $matches[0];
+		$s3text = trim(str_ireplace( ['&nbsp;'], ' ', $matches[1]) );
+
 		if ( !$s3text ) return ''; // Wipe out empty tag
 		$s3values = preg_split('/\s*,\s*/', $s3text);
 
 		switch ($s3values[0]) {
 		case 's3streamingvideo':
 			return self::s3ms_compat_videostream($s3values, $text);
+			break;
+		case 's3link':
+		case 's3link_s':
+			return self::s3ms_compat_link($s3values, $text);
 			break;
 		default:
 			return "<b>*** S3MEDIASTREAM TYPE {$s3values[0]} DOES NOT SUPPORTED ***</b>";
@@ -328,13 +314,110 @@ events: { onReady: function () { {$onReady} } } });
 				self::s3ms_compat_replace_plus($mediaFile)
 			),
 		];
-		if ( $html5Fallback ) {
+		// if ( $html5Fallback ) {
+		// 	$params['fallbackUrl'] = self::compose_distribution_url(
+		// 		$html5Fallback,
+		// 		self::s3ms_compat_replace_plus($mediaFile)
+		// 	);
+		// } else
+		if ( self::default_param('fallbackdistr') ) {
 			$params['fallbackUrl'] = self::compose_distribution_url(
-				self::s3ms_compat_replace_plus($html5Fallback),
+				self::default_param('fallbackdistr'),
 				self::s3ms_compat_replace_plus($mediaFile)
 			);
 		}
 
 		return $this->embed_video( $params, $text );
 	}
+
+	private function s3ms_compat_link($values, $text)
+	{
+		global $USER, $filter_cloudfront_signurl_defaults;
+		list(
+			$mediaType,
+			$linkTitle,
+			$mediaFile,
+			$bucket,
+			$expireSeconds
+		) = $values;
+
+		$mediaFile = self::s3ms_compat_replace_plus($mediaFile);
+
+		if ( $mediaType == 's3link_s' ) {
+			if ( $USER && $USER->id ) {
+				$mediaFile = 'users/' . $USER->id . '/' . $mediaFile;
+			} else {
+				return $filter_cloudfront_signurl_defaults['nouserstub'];
+			}
+		}
+
+		$params = [
+			'name' => $linkTitle,
+			'url' => self::compose_distribution_url(self::default_param('fallbackdistr'), $mediaFile),
+		];
+
+		return self::embed_link($params, $text);
+	}
+
+	private function embed_link($params, $text)
+	{
+		$params['signUrl'] = filter_cloudfront_signurl_urlsigner::get_canned_policy_stream_name($params['url']);
+		return "<a href='{$params['signUrl']}'>{$params['name']}</a>";
+	}
+
+	private function embed_video($params, $text) {
+		// var_dump($params);
+		// No url given or composed
+		if ( !array_key_exists( 'url', $params ) ) return $text;
+
+		if ( preg_match('~.*(rtmp://.*/cfx/st/(_definst_/|mp4:|flv:|mp3:|webm:)?)(\S*)~is', $params['url'], $url_parts) ) {
+			if (count($url_parts) < 3)
+				return $text;
+
+			$params['signUrl'] = filter_cloudfront_signurl_urlsigner::get_canned_policy_stream_name_rtmp($url_parts[1], $url_parts[3]);
+			$params['player'] = 'flash';
+		} else {
+			$params['signUrl'] = filter_cloudfront_signurl_urlsigner::get_canned_policy_stream_name($params['url']);
+			$params['player'] = 'flash';
+		}
+
+		// don't check for rtmp cause fallback must be web distribution
+		if ( self::is_param_set( 'fallbackUrl', $params ) ) {
+			$params['signFallbackUrl'] = filter_cloudfront_signurl_urlsigner::get_canned_policy_stream_name($params['fallbackUrl']);
+			$fallbackUrl = ",{file: '{$params['signFallbackUrl']}'}";
+		} else {
+			$fallbackUrl = '';
+		}
+
+		if ( self::is_param_set( 'autostart', $params ) ) {
+			$onReady = 'this.play();';
+		} elseif ( self::is_param_set( 'thumb', $params ) ) {
+			$onReady = 'this.play(); this.pause();';
+		} else {
+			$onReady = '';
+		}
+
+		$custom = '';
+		if ( self::is_param_set( 'image', $params ) ) {
+			$custom .= "image: '{$this->imageDir}/{$params['image']}',";
+		}
+		if ( array_key_exists('title', $params) && $params['title']  ) {
+			$custom .= "title: '{$params['image']}',";
+		}
+
+		$this->id++;
+		$embed = "<div id='cloudfront-video-{$this->id}'></div>
+<script type='text/javascript' id='cloudfront-video-setup-{$this->id}'>
+jwplayer('cloudfront-video-{$this->id}').setup({
+flashplayer: '{$this->scriptDir}/jwplayer/jwplayer.flash.swf',
+sources: [{file: '{$params['signUrl']}'}{$fallbackUrl}],
+width: '{$params['width']}',
+height: '{$params['height']}',
+primary: '{$params['player']}',
+{$custom}
+events: { onReady: function () { {$onReady} } } });
+</script>";
+		return $embed;
+	}
+
 }

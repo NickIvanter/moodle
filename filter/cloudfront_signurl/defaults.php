@@ -11,4 +11,5 @@ $filter_cloudfront_signurl_defaults = [
 	'videothumb' => 0,
 	'linkname' => 'Please set the text',
 	'nouserstub' => 'Please register',
+	'playerkey' => 'MskDf3mwEySn8344579IXFmJZOU97Sntf6bMIw==',
 ];

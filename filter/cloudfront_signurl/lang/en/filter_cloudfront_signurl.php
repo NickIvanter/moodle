@@ -45,3 +45,5 @@ $string['videoautostart'] = 'Video autostart';
 $string['videoautostartdesc'] = 'Autostart playback on page load';
 $string['videothumb'] = 'Video thumb';
 $string['videothumbdesc'] = 'Create video thumbnail. This will autoload video!';
+$string['playerkey'] = 'License key for JWPlayer';
+$string['playerkeydesc'] = 'Can be obtained at jwplayer.com';

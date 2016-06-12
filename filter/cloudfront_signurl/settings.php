@@ -91,4 +91,10 @@ if ($ADMIN->fulltree) {
 		$filter_cloudfront_signurl_defaults['videothumb']
 	));
 
+	$settings->add(new admin_setting_configtext('filter_cloudfront_signurl/playerkey',
+        get_string('playerkey', 'filter_cloudfront_signurl'),
+        get_string('playerkeydesc', 'filter_cloudfront_signurl'),
+        ''));
+
+
 }

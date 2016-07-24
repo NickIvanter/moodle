@@ -87,7 +87,7 @@ class filter_cloudfront_signurl extends moodle_text_filter {
 		$playerkey = self::default_param('playerkey');
 
 		return "<script type='text/javascript' src='{$this->scriptDir}/jwplayer/jwplayer.js'></script>
-<script>jwplayer.key='$playerkey';</script>";
+<script>jwplayer.key='$playerkey';</script><style>.fluid-width-video-wrapper { position: initial; }</style>";
 	}
 
 	private static function is_rtmp_distribution($dist)

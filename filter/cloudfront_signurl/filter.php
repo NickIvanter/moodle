@@ -348,9 +348,8 @@ class filter_cloudfront_signurl extends moodle_text_filter {
 		$mediaFile = self::s3ms_compat_replace_plus($mediaFile);
 
 		if ( $mediaType == 's3link_s' ) {
-			file_put_contents('/tmp/u.log', var_export($USER,true));
 			if ( $USER && $USER->idnumber ) {
-				$mediaFile = 'users/' . $USER->idnumber . '/' . $mediaFile;
+				$mediaFile = 'user/' . $USER->idnumber . '/' . $mediaFile;
 			} else {
 				return $filter_cloudfront_signurl_defaults['nouserstub'];
 			}

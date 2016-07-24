@@ -116,7 +116,7 @@ class filter_cloudfront_signurl extends moodle_text_filter {
 			$ext = '';
 		}
 
-		return $protocol . $dist . '.cloudfront.net/' . $suffix . $ext . $file;
+		return $protocol . $dist . '.cloudfront.net/' . $suffix . $ext . self::encode_url($file);
 	}
 
 
@@ -180,7 +180,8 @@ class filter_cloudfront_signurl extends moodle_text_filter {
 		// Direct full url
 		if ( preg_match('/url=([^]\s]+)/i', $text, $url) ) {
 			$params['url'] = $url[1];
-		}
+			$params['url'] = self::encode_url($url[1]);
+	}
 
 		// Fallback Dist and file
 		$fallback_dist = null;
@@ -196,6 +197,7 @@ class filter_cloudfront_signurl extends moodle_text_filter {
 		// Direct full url
 		if ( preg_match('/fallback_url=([^]\s]+)/i', $text, $fallback) ) {
 			$params['fallbackUrl'] = $fallback[1];
+			$params['fallbackUrl'] = self::encode_url($fallback[1]);
 		}
 
 		return $this->embed_video($params, $text);
@@ -221,13 +223,14 @@ class filter_cloudfront_signurl extends moodle_text_filter {
 		if ( preg_match('/file=([^]\s]+)/i', $text, $file_part) ) {
 			$file = $file_part[1];
 		}
+
 		if ( $dist && $file ) {
 			$params['url'] = self::compose_distribution_url($dist, $file);
 		}
 
 		// Direct full url
 		if ( preg_match('/url=([^]\s]+)/i', $text, $url) ) {
-			$params['url'] = $url[1];
+			$params['url'] = self::encode_url($url[1]);
 		}
 
 		return $this->embed_link($params, $text);
@@ -345,8 +348,9 @@ class filter_cloudfront_signurl extends moodle_text_filter {
 		$mediaFile = self::s3ms_compat_replace_plus($mediaFile);
 
 		if ( $mediaType == 's3link_s' ) {
-			if ( $USER && $USER->id ) {
-				$mediaFile = 'users/' . $USER->id . '/' . $mediaFile;
+			file_put_contents('/tmp/u.log', var_export($USER,true));
+			if ( $USER && $USER->idnumber ) {
+				$mediaFile = 'users/' . $USER->idnumber . '/' . $mediaFile;
 			} else {
 				return $filter_cloudfront_signurl_defaults['nouserstub'];
 			}
@@ -358,6 +362,11 @@ class filter_cloudfront_signurl extends moodle_text_filter {
 		];
 
 		return self::embed_link($params, $text);
+	}
+
+	private static function encode_url($url)
+	{
+		return str_replace('%2F', '/', rawurlencode($url));
 	}
 
 	private function embed_link($params, $text)

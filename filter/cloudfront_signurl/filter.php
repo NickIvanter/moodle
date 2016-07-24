@@ -349,7 +349,7 @@ class filter_cloudfront_signurl extends moodle_text_filter {
 
 		if ( $mediaType == 's3link_s' ) {
 			if ( $USER && $USER->idnumber ) {
-				$mediaFile = 'user/' . $USER->idnumber . '/' . $mediaFile;
+				$mediaFile = 'users/' . $USER->idnumber . '/' . $mediaFile;
 			} else {
 				return $filter_cloudfront_signurl_defaults['nouserstub'];
 			}
@@ -414,7 +414,7 @@ class filter_cloudfront_signurl extends moodle_text_filter {
 			$custom .= "title: '{$params['image']}',";
 		}
 
-		$this->id++;
+		$this->id = self::getRandomID();
 		$embed = "<div id='cloudfront-video-{$this->id}'></div>
 <script type='text/javascript' id='cloudfront-video-setup-{$this->id}'>
 jwplayer('cloudfront-video-{$this->id}').setup({
@@ -429,4 +429,14 @@ events: { onReady: function () { {$onReady} } } });
 		return $embed;
 	}
 
+	private static function getRandomID($length = 10)
+	{
+		$characters = 'abcdefghijklmnopqrstuvwxyz';
+		$charactersLength = strlen($characters);
+		$randomString = '';
+		for ($i = 0; $i < $length; $i++) {
+			$randomString .= $characters[rand(0, $charactersLength - 1)];
+		}
+		return $randomString;
+	}
 }

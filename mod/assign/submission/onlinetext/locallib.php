@@ -151,14 +151,17 @@ class assign_submission_onlinetext extends assign_submission_plugin {
 
         }
 
-        $data = file_prepare_standard_editor($data,
-                                             'onlinetext',
-                                             $editoroptions,
-                                             $this->assignment->get_context(),
-                                             'assignsubmission_onlinetext',
-                                             ASSIGNSUBMISSION_ONLINETEXT_FILEAREA,
-                                             $submissionid);
-        $mform->addElement('editor', 'onlinetext_editor', $this->get_name(), null, $editoroptions);
+        /* ORIG CODE
+         * $data = file_prepare_standard_editor($data,
+         *                                      'onlinetext',
+         *                                      $editoroptions,
+         *                                      $this->assignment->get_context(),
+         *                                      'assignsubmission_onlinetext',
+         *                                      ASSIGNSUBMISSION_ONLINETEXT_FILEAREA,
+         *                                      $submissionid);
+         * $mform->addElement('editor', 'onlinetext_editor', $this->get_name(), null, $editoroptions);
+         */
+        $mform->addElement('textarea', 'onlinetext', $this->get_name(), 'rows="10" style="width:95%;')->setValue(['text' => $data->onlinetext]);
 
         return true;
     }
@@ -189,27 +192,30 @@ class assign_submission_onlinetext extends assign_submission_plugin {
      */
     public function save(stdClass $submission, stdClass $data) {
         global $USER, $DB;
-
-        $editoroptions = $this->get_edit_options();
-
-        $data = file_postupdate_standard_editor($data,
-                                                'onlinetext',
-                                                $editoroptions,
-                                                $this->assignment->get_context(),
-                                                'assignsubmission_onlinetext',
-                                                ASSIGNSUBMISSION_ONLINETEXT_FILEAREA,
-                                                $submission->id);
+        /*
+         * $editoroptions = $this->get_edit_options();
+		 *
+         * $data = file_postupdate_standard_editor($data,
+         *                                         'onlinetext',
+         *                                         $editoroptions,
+         *                                         $this->assignment->get_context(),
+         *                                         'assignsubmission_onlinetext',
+         *                                         ASSIGNSUBMISSION_ONLINETEXT_FILEAREA,
+         *                                         $submission->id);
+         */
 
         $onlinetextsubmission = $this->get_onlinetext_submission($submission->id);
 
-        $fs = get_file_storage();
-
-        $files = $fs->get_area_files($this->assignment->get_context()->id,
-                                     'assignsubmission_onlinetext',
-                                     ASSIGNSUBMISSION_ONLINETEXT_FILEAREA,
-                                     $submission->id,
-                                     'id',
-                                     false);
+        /*
+         * $fs = get_file_storage();
+		 *
+         * $files = $fs->get_area_files($this->assignment->get_context()->id,
+         *                              'assignsubmission_onlinetext',
+         *                              ASSIGNSUBMISSION_ONLINETEXT_FILEAREA,
+         *                              $submission->id,
+         *                              'id',
+         *                              false);
+         */
 
         // Check word count before submitting anything.
         $exceeded = $this->check_word_count(trim($data->onlinetext));
@@ -223,9 +229,9 @@ class assign_submission_onlinetext extends assign_submission_plugin {
             'courseid' => $this->assignment->get_course()->id,
             'objectid' => $submission->id,
             'other' => array(
-                'pathnamehashes' => array_keys($files),
+                'pathnamehashes' => [], //array_keys($files),
                 'content' => trim($data->onlinetext),
-                'format' => $data->onlinetext_editor['format']
+                'format' => '1', //$data->onlinetext_editor['format']
             )
         );
         if (!empty($submission->userid) && ($submission->userid != $USER->id)) {
@@ -261,7 +267,7 @@ class assign_submission_onlinetext extends assign_submission_plugin {
         if ($onlinetextsubmission) {
 
             $onlinetextsubmission->onlinetext = $data->onlinetext;
-            $onlinetextsubmission->onlineformat = $data->onlinetext_editor['format'];
+            $onlinetextsubmission->onlineformat = '1'; //$data->onlinetext_editor['format'];
             $params['objectid'] = $onlinetextsubmission->id;
             $updatestatus = $DB->update_record('assignsubmission_onlinetext', $onlinetextsubmission);
             $event = \assignsubmission_onlinetext\event\submission_updated::create($params);
@@ -272,7 +278,7 @@ class assign_submission_onlinetext extends assign_submission_plugin {
 
             $onlinetextsubmission = new stdClass();
             $onlinetextsubmission->onlinetext = $data->onlinetext;
-            $onlinetextsubmission->onlineformat = $data->onlinetext_editor['format'];
+            $onlinetextsubmission->onlineformat = '1'; //$data->onlinetext_editor['format'];
 
             $onlinetextsubmission->submission = $submission->id;
             $onlinetextsubmission->assignment = $this->assignment->get_instance()->id;

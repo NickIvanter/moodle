@@ -5639,10 +5639,8 @@ function email_to_user($user, $from, $subject, $messagetext, $messagehtml = '', 
 
     if (!empty($CFG->emailonlyfromnoreplyaddress)) {
         $usetrueaddress = false;
-        if (empty($replyto) && $from->maildisplay) {
-            $replyto = $from->email;
-            $replytoname = fullname($from);
-        }
+		$from = get_string('noreplyname');
+		$replyto = '';
     }
 
     if (is_string($from)) { // So we can pass whatever we want if there is need.
@@ -5653,7 +5651,7 @@ function email_to_user($user, $from, $subject, $messagetext, $messagehtml = '', 
         $mail->FromName = fullname($from);
     } else {
         $mail->From     = $CFG->noreplyaddress;
-        $mail->FromName = fullname($from);
+        $mail->FromName = get_string('noreplyname');
         if (empty($replyto)) {
             $tempreplyto[] = array($CFG->noreplyaddress, get_string('noreplyname'));
         }

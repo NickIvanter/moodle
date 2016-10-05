@@ -649,6 +649,9 @@ if ($mode === MODE_USERDETAILS) {    // Print simple listing.
                 if (!empty($user->role)) {
                     $row->cells[1]->text .= get_string('role').get_string('labelsep', 'langconfig').$user->role.'<br />';
                 }
+
+		$user->maildisplay = 0;
+
                 if ($user->maildisplay == 1 or ($user->maildisplay == 2 and ($course->id != SITEID) and !isguestuser()) or
                             in_array('email', $extrafields) or ($user->id == $USER->id)) {
                     $row->cells[1]->text .= get_string('email').get_string('labelsep', 'langconfig').html_writer::link("mailto:$user->email", $user->email) . '<br />';

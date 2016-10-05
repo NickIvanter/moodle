@@ -4518,7 +4518,7 @@ class assign {
                     $gradefordisplay = $this->display_grade($gradebookgrade->grade, false);
                 }
                 $gradeddate = $gradebookgrade->dategraded;
-                if (isset($grade->grader)) {
+                if (isset($grade->grader) && $cangrade) {
                     $grader = $DB->get_record('user', array('id' => $grade->grader));
                 }
             }

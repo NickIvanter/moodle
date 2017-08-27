@@ -379,13 +379,13 @@ class filter_cloudfront_signurl extends moodle_text_filter {
 		// No url given or composed
 		if ( !array_key_exists( 'url', $params ) ) return $text;
 
-		if ( preg_match('~.*(rtmp://.*/cfx/st/(_definst_/|mp4:|flv:|mp3:|webm:)?)(\S*)~is', $params['url'], $url_parts) ) {
+		if ( false && preg_match('~.*(rtmp://.*/cfx/st/(_definst_/|mp4:|flv:|mp3:|webm:)?)(\S*)~is', $params['url'], $url_parts) ) {
 			if (count($url_parts) < 3)
 				return $text;
 
 			$params['signUrl'] = filter_cloudfront_signurl_urlsigner::get_canned_policy_stream_name_rtmp($url_parts[1], $url_parts[3]);
 			$params['player'] = 'flash';
-		} else {
+		} else if ( false ) {
 			$params['signUrl'] = filter_cloudfront_signurl_urlsigner::get_canned_policy_stream_name($params['url']);
 			$params['player'] = 'flash';
 		}

@@ -254,30 +254,29 @@ class filter_cloudfront_hlsaes extends moodle_text_filter {
 
 		if ( self::is_param_set( 'autostart', $params ) ) {
 			$custom .= ', autoplay: true';
-		} elseif ( self::is_param_set( 'thumb', $params ) ) {
-			$onReady = 'this.play(); this.pause();';
-		} else {
-			$onReady = '';
 		}
 
-
-		$rtmpPos = strpos( $params['hlsaes'], 'cfx/st/' );
-		if ($rtmpPos) {
-			$params['rtmp'] = substr( $params['hlsaes'], 0, $rtmpPos+6 );
-			$params['hlsaes'] = substr( $params['hlsaes'], $rtmpPos+7 );
+		$style = '';
+		if ( self::is_param_set( 'width', $params ) ) {
+			$style .= "width: {$params['width']}px;";
+		}
+		if ( self::is_param_set( 'height', $params ) ) {
+			$style .= "height: {$params['height']}px;";
 		}
 
 		$this->id = self::getRandomID();
-		$embed = "<div id='cloudfront-video-{$this->id}'></div>
+		$embed = "<style>#cloudfront-video-{$this->id} { $style }</style><div id='cloudfront-video-{$this->id}' style='{$style}'></div>
 <script type='text/javascript' id='cloudfront-video-setup-{$this->id}'>
 (function() {
 var player_element = document.getElementById('cloudfront-video-{$this->id}');
 flowplayer( player_element, {
 share: false,
+logo: '',
 width: '{$params['width']}',
 height: '{$params['height']}',
 clip: { sources: [{ type: \"application/x-mpegurl\", src: \"{$params['url']}\" }] }{$custom}
 });
+document.querySelector('#cloudfront-video-{$this->id} > a').remove();
 })()
 </script>";
 		return $embed;

@@ -126,9 +126,7 @@ class filter_cloudfront_hlsaes extends moodle_text_filter {
 
 		$context = stream_context_create( $options );
 		$url = get_config( 'filter_cloudfront_hlsaes', 'tokenurl' );
-		var_dump( $url );
 		$token = file_get_contents($url, false, $context);
-		var_dump( $token );
 		return $token;
 	}
 

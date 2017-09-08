@@ -141,7 +141,7 @@ class filter_cloudfront_hlsaes extends moodle_text_filter {
 
 		$custom = '';
 		if ( self::is_param_set( 'poster', $params ) ) {
-			$custom .= ", poster: '{$this->imageUrl}/{$params['poster']}'";
+			$custom .= ", poster: '{$params['poster']}'";
 		}
 
 		if ( self::is_param_set( 'autoplay', $params ) ) {

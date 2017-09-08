@@ -6,6 +6,7 @@
  * @subpackage cloudfront_hlsaes
  */
 
+$string['filtername'] = 'Cloudfront HLS AES';
 $string['tokenurl'] = 'Video Key Token URL';
 $string['tokenurldesc'] = 'URL for acquiring token to key service';
 $string['tokensecret'] = 'Token Service Secret';

@@ -23,12 +23,17 @@ class filter_cloudfront_hlsaes extends moodle_text_filter {
 	protected $tokenHeader = 'X-HLSAES-Token';
 	protected $tokenIdHeader = 'X-HLSAES-Token-id';
 
+	protected $origin;
+	protected $secret;
+
 	public function __construct()
 	{
 		global $CFG;
 		$this->scriptDir = $CFG->wwwroot.'/filter/cloudfront_hlsaes/scripts';
 
 		$this->charsLen = strlen( $this->chars );
+		$this->origin = $CFG->wwwroot;
+		$this->secret = get_config( 'filter_cloudfront_hlsaes', 'tokensecret', false );
 	}
 
 	/**
@@ -114,11 +119,10 @@ class filter_cloudfront_hlsaes extends moodle_text_filter {
 
 	protected function setup_token( $token_id )
 	{
-		$secret = get_config( 'filter_cloudfront_hlsaes', 'tokensecret', false );
 		$options = [
 			'http'		  => [
 				'method'  => 'POST',
-				'header'  => "Content-type: application/x-www-form-urlencoded\r\n{$this->secretHeader}: {$secret}\r\n",
+				'header'  => "Content-type: application/x-www-form-urlencoded\r\n{$this->secretHeader}: {$this->secret}\r\nOrigin: {$this->origin}",
 				'content' => http_build_query(['token_id' => $token_id]),
 				'timeout' => 10,
 			],

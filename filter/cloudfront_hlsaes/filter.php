@@ -100,7 +100,7 @@ class filter_cloudfront_hlsaes extends moodle_text_filter {
 		$params = [
 			'url' => self::parse_native_param($text, 'url'),
 			'poster' => self::parse_native_param($text, 'poster'),
-			'autostart' => self::parse_native_param($text, 'autoplay'),
+			'autoplay' => self::parse_native_param($text, 'autoplay'),
 			'width' => self::parse_native_param($text, 'width'),
 			'height' => self::parse_native_param($text, 'height'),
 		];

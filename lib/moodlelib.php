@@ -5833,14 +5833,15 @@ function email_to_user($user, $from, $subject, $messagetext, $messagehtml = '', 
     } else {
         $mail->From = $noreplyaddress;
         $fromdetails = new stdClass();
-        $fromdetails->name = fullname($from);
+        $fromdetails->name = get_string('noreplyname');
         $fromdetails->url = preg_replace('#^https?://#', '', $CFG->wwwroot);
         $fromdetails->siteshortname = format_string($SITE->shortname);
         $fromstring = $fromdetails->name;
         if ($CFG->emailfromvia != EMAIL_VIA_NEVER) {
             $fromstring = get_string('emailvia', 'core', $fromdetails);
         }
-        $mail->FromName = $fromstring;
+        $mail->From     = $CFG->noreplyaddress;
+        $mail->FromName = get_string('noreplyname');
         if (empty($replyto)) {
             $tempreplyto[] = array($noreplyaddress, get_string('noreplyname'));
         }

@@ -589,6 +589,8 @@ class assign_submission_onlinetext extends assign_submission_plugin {
      * @return bool
      */
     public function submission_is_empty(stdClass $data) {
+		if ( isset( $data->onlinetext ) && !empty( $data->onlinetext ) ) return false;
+
         if (!isset($data->onlinetext_editor)) {
             return true;
         }

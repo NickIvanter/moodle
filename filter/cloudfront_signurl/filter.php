@@ -29,6 +29,7 @@
 defined('MOODLE_INTERNAL') || die();
 require_once($CFG->dirroot.'/filter/cloudfront_signurl/defaults.php');
 require_once($CFG->dirroot.'/filter/cloudfront_signurl/lib.php');
+require_once($CFG->dirroot.'/filter/cloudfront_signurl/vendor/autoload.php' );
 
 class filter_cloudfront_signurl extends moodle_text_filter {
 
@@ -55,7 +56,7 @@ class filter_cloudfront_signurl extends moodle_text_filter {
             // Non string data can not be filtered anyway.
             return $text;
         }
-        
+
         if (stripos($text, '[cloudfront') === false && stripos($text, '[s3mediastream]') === false) {
             // Performance shortcut - all regexes below contain http/https protocol,
             // if not present nothing can match.
@@ -355,9 +356,26 @@ class filter_cloudfront_signurl extends moodle_text_filter {
 			}
 		}
 
+		$awsConfig = [
+			'version'  => 'latest',
+			'region'   => 'ams3',
+			'endpoint' => "https://ams3.digitaloceanspaces.com",
+			'profile' => 'digitalocean',
+		];
+
+		$aws = new \Aws\Sdk( $awsConfig );
+		$s3 = $aws->createS3();
+
+		$command = $s3->getCommand('GetObject', [
+			'Bucket' => $bucket,
+			'Key' => $mediaFile,
+		]);
+
+		$request = $s3->createPresignedRequest( $command, '+10 minutes' );
+
 		$params = [
 			'name' => $linkTitle,
-			'url' => self::compose_distribution_url(self::default_param('fallbackdistr'), $mediaFile),
+			'signUrl' => (string) $request->getUri(),
 		];
 
 		return self::embed_link($params, $text);
@@ -370,7 +388,6 @@ class filter_cloudfront_signurl extends moodle_text_filter {
 
 	private function embed_link($params, $text)
 	{
-		$params['signUrl'] = filter_cloudfront_signurl_urlsigner::get_canned_policy_stream_name($params['url']);
 		return "<a href='{$params['signUrl']}'>{$params['name']}</a>";
 	}
 
